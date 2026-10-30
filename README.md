@@ -113,7 +113,7 @@ All routes are under `/api`. Everything except `/health` and `/auth/login|refres
 ### Doctors
 | Method | Path | Notes |
 | --- | --- | --- |
-| GET | `/doctors` | List with `patientCount`. Query: `page, limit, q, specialization, hospital, from, to, sortBy (createdAt\|name\|specialization\|hospital), order` |
+| GET | `/doctors` | List with `patientCount`. Query: `page, limit, search, specialization, hospital, from, to, sortBy (createdAt\|name\|specialization\|hospital), order` |
 | GET | `/doctors/filters` | Distinct specializations & hospitals for dropdowns |
 | POST | `/doctors` | `{ name, specialization, hospital, phone, email }` |
 | GET | `/doctors/:id` | Doctor + `patientCount` + `conditionBreakdown` |
@@ -126,7 +126,7 @@ All routes are under `/api`. Everything except `/health` and `/auth/login|refres
 ### Patients
 | Method | Path | Notes |
 | --- | --- | --- |
-| GET | `/patients` | Query: `page, limit, q, doctor, condition (comma list), gender, minAge, maxAge, from, to, dateField (admissionDate\|createdAt), sortBy (createdAt\|admissionDate\|name\|age), order`. Each patient includes `doctor { name, specialization, hospital }` |
+| GET | `/patients` | Query: `page, limit, search, doctor, condition (comma list), gender, minAge, maxAge, from, to, dateField (admissionDate\|createdAt), sortBy (createdAt\|admissionDate\|name\|age), order`. Each patient includes `doctor { name, specialization, hospital }` |
 | POST | `/patients` | `{ name, age, gender, phone, doctor, email?, condition?, diagnosis?, bloodGroup?, address?, admissionDate?, notes? }` |
 | GET | `/patients/:id` | |
 | PATCH | `/patients/:id` | Any subset; `""` clears an optional field; changing `doctor` reassigns |

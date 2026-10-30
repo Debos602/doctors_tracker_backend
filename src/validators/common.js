@@ -26,7 +26,7 @@ export const optionalDate = z.preprocess(emptyToUndefined, z.coerce.date().optio
 export const listQueryBase = {
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(PAGINATION.MAX_LIMIT).default(PAGINATION.DEFAULT_LIMIT),
-  q: z.string().trim().max(100).optional(),
+  search: z.string().trim().max(100).optional(),
   order: z.enum(['asc', 'desc']).default('desc'),
   from: dateFrom,
   to: dateTo,

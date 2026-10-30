@@ -14,7 +14,7 @@ import { ensureDoctorExists } from './doctor.service.js';
 const DOCTOR_POPULATE = { path: 'doctor', select: 'name specialization hospital' };
 
 export function buildPatientFilter(query) {
-  const filter = { ...buildSearchFilter(query.q) };
+  const filter = { ...buildSearchFilter(query.search) };
 
   if (query.doctor) filter.doctor = new mongoose.Types.ObjectId(query.doctor);
 

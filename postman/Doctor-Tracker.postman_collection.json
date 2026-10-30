@@ -298,7 +298,7 @@
                   "disabled": false
                 },
                 {
-                  "key": "q",
+                  "key": "search",
                   "value": "cardio",
                   "description": "Prefix search: name, specialization, hospital, email, phone",
                   "disabled": true
@@ -531,7 +531,7 @@
                   "disabled": false
                 },
                 {
-                  "key": "q",
+                  "key": "search",
                   "value": "ayesha",
                   "description": "Prefix search: name, email, phone, diagnosis",
                   "disabled": true
@@ -723,7 +723,7 @@
                   "disabled": true
                 },
                 {
-                  "key": "q",
+                  "key": "search",
                   "value": "ayesha",
                   "description": "Prefix search: name, email, phone, diagnosis",
                   "disabled": true

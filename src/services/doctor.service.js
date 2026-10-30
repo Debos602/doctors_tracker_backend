@@ -28,7 +28,7 @@ async function getPatientCounts(doctorIds) {
 export async function listDoctors(query) {
   const { page, limit, skip } = getPagination(query);
 
-  const filter = { ...buildSearchFilter(query.q) };
+  const filter = { ...buildSearchFilter(query.search) };
   if (query.specialization) filter.specialization = query.specialization;
   if (query.hospital) filter.hospital = query.hospital;
   const createdAt = buildDateRange(query.from, query.to);

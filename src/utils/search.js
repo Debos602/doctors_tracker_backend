@@ -35,9 +35,9 @@ export function buildSearchTokens(textFields = [], phone) {
   return tokens;
 }
 
-export function buildSearchFilter(q) {
-  if (!q) return {};
-  const terms = tokenize(q).slice(0, MAX_TERMS);
+export function buildSearchFilter(search) {
+  if (!search) return {};
+  const terms = tokenize(search).slice(0, MAX_TERMS);
   if (!terms.length) return {};
   return {
     $and: terms.map((term) => ({ searchTokens: new RegExp(`^${escapeRegex(term)}`) })),
