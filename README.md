@@ -50,6 +50,23 @@ Import both files from `postman/` into Postman (**Import → Files**):
 
 Run **Auth → Login** first: the access and refresh tokens are saved automatically and the access token is used by every request. When it expires (15 min), run **Auth → Refresh token**. Creating a doctor or patient saves its id, so the other requests work without copy-pasting. You can also click **Run collection** to execute everything in order (Cleanup deletes the test data it created, Session end logs out).
 
+### Deploy to Vercel
+
+`src/app.js` default-exports the Express app, which Vercel detects and runs as one serverless function (no `vercel.json` needed). The MongoDB connection opens on the first request and is reused by later ones.
+
+1. **Database:** create a MongoDB Atlas cluster. Under *Network Access*, allow `0.0.0.0/0` — Vercel functions don't have fixed IP addresses.
+2. **Indexes and demo data** — run once from your computer against Atlas:
+   ```bash
+   MONGODB_URI="<atlas uri>" npm run sync-indexes
+   MONGODB_URI="<atlas uri>" npm run seed:fresh
+   ```
+   (On Windows PowerShell: `$env:MONGODB_URI="<atlas uri>"; npm run sync-indexes`.)
+3. **Import the repository** in Vercel (*Add New → Project*). The defaults are right: no build command, no output directory.
+4. **Environment variables:** `MONGODB_URI`, `JWT_SECRET` (a new random value), `CLIENT_URL` (the frontend's URL, e.g. `https://doctor-tracker.vercel.app`). `NODE_ENV` is set to `production` by Vercel.
+5. Deploy, then open `https://<backend>.vercel.app/api/health` — it should say `"database": "connected"`.
+
+On serverless, the rate limiter's counters live in each function instance rather than in one shared store, so limits are approximate. For strict limits across instances, back it with a shared store such as Redis.
+
 ---
 
 ## Architecture

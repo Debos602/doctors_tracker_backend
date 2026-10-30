@@ -127,7 +127,7 @@ async function seedPatients(doctors, now) {
         admissionDate,
         doctor: doctor._id,
         createdAt,
-        updatedAt: createdAt,
+        updatedAt: createdAt,J
       };
       if (!CONDITIONS.includes(doc.condition)) doc.condition = 'stable';
       return { ...doc, searchTokens: Patient.buildSearchTokens(doc) };

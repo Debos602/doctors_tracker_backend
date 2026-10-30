@@ -5,7 +5,9 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
+import mongoose from 'mongoose';
 import { env } from './config/env.js';
+import { connectDB } from './config/db.js';
 import routes from './routes/index.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 import { ApiError } from './utils/ApiError.js';
@@ -44,6 +46,15 @@ export function createApp() {
     }),
   );
 
+  // Serverless (Vercel): open the database connection on the first request and
+  // reuse it afterwards. Mongoose queues queries until it is connected.
+  app.use((_req, _res, next) => {
+    if (mongoose.connection.readyState === 0) {
+      connectDB().catch((err) => console.error('❌ MongoDB connection failed:', err.message));
+    }
+    next();
+  });
+
   app.get('/', (_req, res) => res.json({ success: true, message: 'Doctor Tracker API', docs: '/api/health' }));
   app.use('/api', routes);
 
@@ -52,3 +63,10 @@ export function createApp() {
 
   return app;
 }
+
+/**
+ * Default export for Vercel, which runs `src/app.js` as one serverless function.
+ * Locally, `src/server.js` connects first and then listens on PORT.
+ */
+const app = createApp();
+export default app;
