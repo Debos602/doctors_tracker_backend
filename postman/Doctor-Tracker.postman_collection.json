@@ -1,0 +1,1119 @@
+{
+  "info": {
+    "name": "Doctor Tracker API",
+    "description": "REST API for Doctor Tracker (Express + MongoDB).\n\n**Quick start**\n1. Start the API (`npm run dev`) and seed data (`npm run seed:fresh`).\n2. Run **Auth → Login** — the access token is saved to `{{token}}` (used by every request via collection-level Bearer auth) and the refresh token to `{{refreshToken}}`.\n   When the access token expires (15 min) you get `401` with `code: \"TOKEN_EXPIRED\"` — run **Auth → Refresh token**.\n3. Run **Doctors → Create doctor**, then **Patients → Create patient** — their ids are saved to `{{doctorId}}` / `{{patientId}}`, so the other requests work without copy-pasting.\n\nOr open the collection and click **Run** to execute everything in order.\n\nResponses: `{ success, data, meta? }` on success, `{ success: false, message, errors? }` on error.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000/api"
+    },
+    {
+      "key": "adminEmail",
+      "value": "admin@doctortracker.com"
+    },
+    {
+      "key": "adminPassword",
+      "value": "Admin@12345"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "description": "Access token (saved by Login / Refresh)"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "description": "Refresh token (saved by Login / Refresh)"
+    },
+    {
+      "key": "doctorId",
+      "value": ""
+    },
+    {
+      "key": "patientId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Health check",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
+        },
+        "description": "Public. 200 when the database is connected, 503 otherwise."
+      }
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.collectionVariables.set('token', res.data.accessToken);",
+                  "pm.collectionVariables.set('refreshToken', res.data.refreshToken);",
+                  "pm.test('Both tokens returned', () => { pm.expect(res.data.accessToken).to.be.a('string'); pm.expect(res.data.refreshToken).to.be.a('string'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Returns `{ user, accessToken, accessTokenExpiresAt, refreshToken, refreshTokenExpiresAt }` and sets two httpOnly cookies (access on `/`, refresh on `/api/auth` only).\n\nThe test script saves `{{token}}` (access, 15 min) and `{{refreshToken}}` (7 days, single use). Rate limited: 10 failed attempts per 15 minutes."
+          }
+        },
+        {
+          "name": "Me",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "The logged-in user."
+          }
+        },
+        {
+          "name": "Refresh token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Token rotated', () => pm.expect(res.data.refreshToken).to.not.eql(pm.collectionVariables.get('refreshToken')));",
+                  "pm.collectionVariables.set('token', res.data.accessToken);",
+                  "pm.collectionVariables.set('refreshToken', res.data.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "Exchanges the refresh token for a **new access token and a new refresh token** (rotation — each refresh token works once).\n\nBrowsers send the refresh cookie automatically and can post an empty body; API clients send `refreshToken` in the body. Call this when a request fails with `401` and `code: \"TOKEN_EXPIRED\"`, then retry the request.\n\nError codes: `REFRESH_TOKEN_MISSING`, `REFRESH_TOKEN_INVALID` (expired / logged out), `REFRESH_TOKEN_REUSED` (an old token was replayed — the whole session is revoked, log in again), `409 REFRESH_IN_PROGRESS` (another request just rotated it — retry).\n\nRunning this request twice in a row with the same old token demonstrates reuse detection."
+          }
+        },
+        {
+          "name": "Register user (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Front Desk\",\n  \"email\": \"staff{{$timestamp}}@doctortracker.com\",\n  \"password\": \"Staff@12345\",\n  \"role\": \"staff\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Admin only. role: `admin` | `staff` (staff cannot delete). Password needs 8+ chars, upper, lower and a number."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Doctors",
+      "item": [
+        {
+          "name": "List doctors",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Has data array and pagination meta', () => { pm.expect(res.data).to.be.an('array'); pm.expect(res.meta).to.have.keys('page','limit','total','totalPages','hasNextPage','hasPrevPage'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/doctors?page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctors"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number",
+                  "disabled": false
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Items per page, max 100",
+                  "disabled": false
+                },
+                {
+                  "key": "q",
+                  "value": "cardio",
+                  "description": "Prefix search: name, specialization, hospital, email, phone",
+                  "disabled": true
+                },
+                {
+                  "key": "specialization",
+                  "value": "Cardiology",
+                  "description": "Exact value (see Filter options)",
+                  "disabled": true
+                },
+                {
+                  "key": "hospital",
+                  "value": "Square Hospital",
+                  "description": "Exact value (see Filter options)",
+                  "disabled": true
+                },
+                {
+                  "key": "from",
+                  "value": "2026-01-01",
+                  "description": "Created from",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "2026-12-31",
+                  "description": "Created to",
+                  "disabled": true
+                },
+                {
+                  "key": "sortBy",
+                  "value": "createdAt",
+                  "description": "createdAt | name | specialization | hospital",
+                  "disabled": true
+                },
+                {
+                  "key": "order",
+                  "value": "desc",
+                  "description": "asc | desc",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Paginated list. Each doctor includes `patientCount`. Enable the query params you need."
+          }
+        },
+        {
+          "name": "Filter options",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/doctors/filters",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctors",
+                "filters"
+              ]
+            },
+            "description": "Distinct specializations and hospitals for filter dropdowns."
+          }
+        },
+        {
+          "name": "Create doctor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data?._id) pm.collectionVariables.set('doctorId', res.data._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Dr. Tanvir Hossain\",\n  \"specialization\": \"Cardiology\",\n  \"hospital\": \"Chattogram Medical College Hospital\",\n  \"phone\": \"+8801811223344\",\n  \"email\": \"tanvir.hossain.{{$timestamp}}@doctortracker.dev\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/doctors",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctors"
+              ]
+            },
+            "description": "Email must be unique (409 otherwise). Saves the new id to `{{doctorId}}`."
+          }
+        },
+        {
+          "name": "Get doctor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/doctors/{{doctorId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctors",
+                "{{doctorId}}"
+              ]
+            },
+            "description": "Doctor + `patientCount` + `conditionBreakdown`."
+          }
+        },
+        {
+          "name": "Update doctor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hospital\": \"Evercare Hospital\",\n  \"phone\": \"+8801811999888\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/doctors/{{doctorId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctors",
+                "{{doctorId}}"
+              ]
+            },
+            "description": "Send any subset of name, specialization, hospital, phone, email."
+          }
+        },
+        {
+          "name": "List doctor's patients",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Has data array and pagination meta', () => { pm.expect(res.data).to.be.an('array'); pm.expect(res.meta).to.have.keys('page','limit','total','totalPages','hasNextPage','hasPrevPage'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/doctors/{{doctorId}}/patients?page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctors",
+                "{{doctorId}}",
+                "patients"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default 1)",
+                  "disabled": false
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Items per page, max 100",
+                  "disabled": false
+                },
+                {
+                  "key": "q",
+                  "value": "ayesha",
+                  "description": "Prefix search: name, email, phone, diagnosis",
+                  "disabled": true
+                },
+                {
+                  "key": "condition",
+                  "value": "critical,stable",
+                  "description": "stable | recovering | under_observation | critical | discharged (comma separated)",
+                  "disabled": true
+                },
+                {
+                  "key": "gender",
+                  "value": "female",
+                  "description": "male | female | other",
+                  "disabled": true
+                },
+                {
+                  "key": "minAge",
+                  "value": "18",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "maxAge",
+                  "value": "60",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "from",
+                  "value": "2026-01-01",
+                  "description": "YYYY-MM-DD or ISO",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "2026-12-31",
+                  "description": "A bare date covers the whole day",
+                  "disabled": true
+                },
+                {
+                  "key": "dateField",
+                  "value": "admissionDate",
+                  "description": "admissionDate | createdAt — which date from/to applies to",
+                  "disabled": true
+                },
+                {
+                  "key": "sortBy",
+                  "value": "createdAt",
+                  "description": "createdAt | admissionDate | name | age",
+                  "disabled": true
+                },
+                {
+                  "key": "order",
+                  "value": "desc",
+                  "description": "asc | desc",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "This doctor's patients. Same query params as Patients → List patients (except `doctor`)."
+          }
+        },
+        {
+          "name": "Add patient to doctor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data?._id) pm.collectionVariables.set('patientId', res.data._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Rakib Ahmed\",\n  \"age\": 52,\n  \"gender\": \"male\",\n  \"phone\": \"+8801711000000\",\n  \"email\": \"\",\n  \"condition\": \"under_observation\",\n  \"diagnosis\": \"Angina\",\n  \"bloodGroup\": \"B+\",\n  \"address\": \"12 Road 4, Agrabad, Chattogram\",\n  \"admissionDate\": \"2026-10-28\",\n  \"notes\": \"Follow-up in two weeks\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/doctors/{{doctorId}}/patients",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctors",
+                "{{doctorId}}",
+                "patients"
+              ]
+            },
+            "description": "Creates a patient under this doctor (no `doctor` field needed). Saves the id to `{{patientId}}`."
+          }
+        },
+        {
+          "name": "Remove patient from doctor (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/doctors/{{doctorId}}/patients/{{patientId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctors",
+                "{{doctorId}}",
+                "patients",
+                "{{patientId}}"
+              ]
+            },
+            "description": "Admin only. 404 if the patient doesn't belong to this doctor."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Patients",
+      "item": [
+        {
+          "name": "List patients",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Has data array and pagination meta', () => { pm.expect(res.data).to.be.an('array'); pm.expect(res.meta).to.have.keys('page','limit','total','totalPages','hasNextPage','hasPrevPage'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/patients?page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "patients"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default 1)",
+                  "disabled": false
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Items per page, max 100",
+                  "disabled": false
+                },
+                {
+                  "key": "doctor",
+                  "value": "{{doctorId}}",
+                  "description": "Only this doctor’s patients",
+                  "disabled": true
+                },
+                {
+                  "key": "q",
+                  "value": "ayesha",
+                  "description": "Prefix search: name, email, phone, diagnosis",
+                  "disabled": true
+                },
+                {
+                  "key": "condition",
+                  "value": "critical,stable",
+                  "description": "stable | recovering | under_observation | critical | discharged (comma separated)",
+                  "disabled": true
+                },
+                {
+                  "key": "gender",
+                  "value": "female",
+                  "description": "male | female | other",
+                  "disabled": true
+                },
+                {
+                  "key": "minAge",
+                  "value": "18",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "maxAge",
+                  "value": "60",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "from",
+                  "value": "2026-01-01",
+                  "description": "YYYY-MM-DD or ISO",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "2026-12-31",
+                  "description": "A bare date covers the whole day",
+                  "disabled": true
+                },
+                {
+                  "key": "dateField",
+                  "value": "admissionDate",
+                  "description": "admissionDate | createdAt — which date from/to applies to",
+                  "disabled": true
+                },
+                {
+                  "key": "sortBy",
+                  "value": "createdAt",
+                  "description": "createdAt | admissionDate | name | age",
+                  "disabled": true
+                },
+                {
+                  "key": "order",
+                  "value": "desc",
+                  "description": "asc | desc",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Paginated list with search and filters. Each patient includes `doctor { name, specialization, hospital }`. Enable the query params you need."
+          }
+        },
+        {
+          "name": "Create patient",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data?._id) pm.collectionVariables.set('patientId', res.data._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ayesha Rahman\",\n  \"age\": 34,\n  \"gender\": \"female\",\n  \"phone\": \"+8801711000000\",\n  \"email\": \"ayesha.rahman@example.com\",\n  \"condition\": \"under_observation\",\n  \"diagnosis\": \"Hypertension\",\n  \"bloodGroup\": \"B+\",\n  \"address\": \"12 Road 4, Agrabad, Chattogram\",\n  \"admissionDate\": \"2026-10-28\",\n  \"notes\": \"Follow-up in two weeks\",\n  \"doctor\": \"{{doctorId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/patients",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "patients"
+              ]
+            },
+            "description": "Required: name, age, gender, phone, doctor. Optional: email, condition (default `stable`), diagnosis, bloodGroup, address, admissionDate (default now), notes.\n\n`condition`: stable | recovering | under_observation | critical | discharged\n`bloodGroup`: A+ A- B+ B- AB+ AB- O+ O-\n\nSaves the id to `{{patientId}}`."
+          }
+        },
+        {
+          "name": "Get patient",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/patients/{{patientId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "patients",
+                "{{patientId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update patient",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"condition\": \"recovering\",\n  \"notes\": \"Responding well to treatment\",\n  \"bloodGroup\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/patients/{{patientId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "patients",
+                "{{patientId}}"
+              ]
+            },
+            "description": "Send any subset of fields. An empty string clears an optional field (here: bloodGroup). Sending `doctor` reassigns the patient."
+          }
+        },
+        {
+          "name": "Delete patient (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/patients/{{patientId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "patients",
+                "{{patientId}}"
+              ]
+            },
+            "description": "Admin only."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "Summary",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json().data;",
+                  "pm.test('Has all dashboard sections', () => pm.expect(d).to.include.keys('totals','patientsByCondition','patientsByGender','patientsByAgeGroup','patientsPerDoctor','doctorsBySpecialization','admissionsTimeline','recentPatients'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/summary?tz=Asia/Dhaka",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "dashboard",
+                "summary"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-10-01",
+                  "description": "Range start (default: 30 days before `to`)",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "2026-10-31",
+                  "description": "Range end (default: now)",
+                  "disabled": true
+                },
+                {
+                  "key": "granularity",
+                  "value": "auto",
+                  "description": "auto | day | month (auto = day for ≤ 92 days)",
+                  "disabled": true
+                },
+                {
+                  "key": "tz",
+                  "value": "Asia/Dhaka",
+                  "description": "IANA timezone for grouping the timeline",
+                  "disabled": false
+                },
+                {
+                  "key": "topDoctors",
+                  "value": "10",
+                  "description": "How many doctors in patientsPerDoctor (1–50)",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Everything the dashboard needs in one request: totals, patients by condition/gender/age group, patients per doctor, doctors by specialization, admissions timeline (gap-filled) and recent patients."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cleanup",
+      "description": "Run last. Deletes the doctor created above (and any of their remaining patients).",
+      "item": [
+        {
+          "name": "Delete doctor (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/doctors/{{doctorId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctors",
+                "{{doctorId}}"
+              ]
+            },
+            "description": "Admin only. Also deletes all of this doctor’s patients; response includes `deletedPatients`."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Session end",
+      "description": "Run last. Signs out (revokes the refresh token). The current access token stays valid until it expires (15 min).",
+      "item": [
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('refreshToken', '');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Revokes this device's refresh token and clears both cookies."
+          }
+        },
+        {
+          "name": "Logout from all devices",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout-all",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout-all"
+              ]
+            },
+            "description": "Protected. Revokes every refresh token of the current user; response includes `revokedSessions`."
+          }
+        }
+      ]
+    }
+  ]
+}
