@@ -1,15 +1,21 @@
 # Doctor Tracker — API
 
-A secure REST API for managing doctors and their patients, with server-side search, filtering, pagination and a single-request analytics endpoint for the admin dashboard. Built with **Node.js, Express and MongoDB (Mongoose)**, it runs as a standalone service that the Next.js client talks to over REST.
+Doctor Tracker gives hospital and clinic administrators one secure place to manage their doctors and the patients each doctor looks after. This repository is its REST API: it signs staff in with short-lived JWTs and rotating refresh tokens, stores doctors and patients in MongoDB, answers search, filter and pagination requests from indexes rather than collection scans, and returns everything the admin dashboard needs — totals, patients by condition, patients per doctor and admission trends — in a single request. The Next.js web app that uses it lives in the frontend repository.
+
+| | |
+| --- | --- |
+| **Stack** | Node.js · Express · MongoDB (Mongoose) · Zod · JWT + rotating refresh tokens · bcrypt |
+| **Contents** | [Setup guide](#setup-guide) · [System architecture](#system-architecture) · [API reference](#api-reference) · [Technical decisions](#technical-decisions) · [Authentication](#authentication-access--refresh-tokens) · [Visual evidence](#visual-evidence) |
 
 ---
 
-## Setup
+## Setup guide
 
-**Requirements:** Node.js 18.18+ and a MongoDB 6+ database (local install or a free MongoDB Atlas cluster).
+**Requirements:** Node.js 20+ and a MongoDB 6+ database (a local install or a free MongoDB Atlas cluster).
 
 ```bash
-cd backend
+git clone <this repository> doctor-tracker-api
+cd doctor-tracker-api
 npm install
 cp .env.example .env          # then edit MONGODB_URI and JWT_SECRET
 npm run seed:fresh            # admin user + 30 doctors + 800 patients
@@ -22,6 +28,7 @@ Log in with the seeded admin: `admin@doctortracker.com` / `Admin@12345` (change 
 | --- | --- |
 | `npm run dev` | Start with auto-reload (nodemon) |
 | `npm start` | Start for production |
+| `npm run build` | Syntax-check every source file (the API runs as plain JavaScript; there is nothing to compile) |
 | `npm run seed` | Add demo data (keeps existing) — flags: `--doctors=50 --patients=5000 --fresh` |
 | `npm run seed:fresh` | Wipe doctors & patients, then seed |
 | `npm run sync-indexes` | Create/drop indexes to match the schemas (run on deploy) |
@@ -69,7 +76,7 @@ On serverless, the rate limiter's counters live in each function instance rather
 
 ---
 
-## Architecture
+## System architecture
 
 ```
 Next.js client ──HTTP/JSON──▶ Express API ──Mongoose──▶ MongoDB
@@ -217,3 +224,42 @@ request ──▶ 401 { code: "TOKEN_EXPIRED" }
 | `REFRESH_TOKEN_REUSED` | Replay of a rotated token — session revoked → log in |
 | `REFRESH_IN_PROGRESS` | Parallel refresh just happened → retry |
 
+---
+
+## Visual evidence
+
+The admin web app running on this API, with the seeded demo data. More screenshots, including light theme and mobile, are in the frontend repository.
+
+**Dashboard** — one call to `GET /api/dashboard/summary` fills every panel: totals, the patients-by-condition census, admissions over time, patients per doctor, age groups, specializations, gender and the latest patients.
+
+![Dashboard](docs/screenshots/desktop-dashboard.png)
+
+**Doctors** — `GET /api/doctors` with search, specialization / hospital / date filters, sorting and pagination; each row carries its `patientCount`.
+
+![Doctors list](docs/screenshots/desktop-doctors.png)
+
+**Mobile**
+
+<img src="docs/screenshots/mobile-dashboard.png" alt="Dashboard on a phone" width="320">
+
+A sample response, `GET /api/doctors?search=nadia&limit=1`:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "6721f3c2a9e4b1d0c8f1a201",
+      "name": "Dr. Nadia Khan",
+      "specialization": "Gastroenterology",
+      "hospital": "Chattogram Medical College Hospital",
+      "phone": "+8801712345678",
+      "email": "nadia.khan@doctortracker.dev",
+      "createdAt": "2026-07-03T09:12:44.000Z",
+      "updatedAt": "2026-07-03T09:12:44.000Z",
+      "patientCount": 50
+    }
+  ],
+  "meta": { "page": 1, "limit": 1, "total": 2, "totalPages": 2, "hasNextPage": true, "hasPrevPage": false }
+}
+```
